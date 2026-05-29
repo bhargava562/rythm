@@ -1,0 +1,170 @@
+# Rythm API Endpoints Test Suite
+# This is a REST Client (.http) file, which can be executed directly in VS Code.
+
+@baseUrl = http://localhost:8000/api/v1
+
+### 1. Student Registration
+# @name register
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "full_name": "Bhargava",
+  "email": "bhargava@gmail.com",
+  "password": "mysecretpassword123",
+  "college_name": "XYZ Engineering College",
+  "graduation_year": 2027,
+  "branch": "CSE"
+}
+
+### 2. Student Login
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "bhargava@gmail.com",
+  "password": "mysecretpassword123"
+}
+
+### Extract Auth Token from Login Response
+@authToken = {{login.response.body.access_token}}
+
+
+### 3. Initialize Career Profile
+POST {{baseUrl}}/profile/initialize
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "bio": "Passionate software developer focusing on high throughput backend architectures.",
+  "target_roles": ["Backend Developer", "Java Developer"],
+  "github_url": "https://github.com/bhargava",
+  "leetcode_url": "https://leetcode.com/bhargava",
+  "resume_url": "https://hosted-resumes.com/bhargava.pdf"
+}
+
+
+### 4. Fetch Career Profile
+GET {{baseUrl}}/profile
+Authorization: Bearer {{authToken}}
+
+
+### 5. Update Candidate Skills
+POST {{baseUrl}}/profile/skills
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "skills": [
+    {
+      "skill_name": "Java",
+      "proficiency_level": "INTERMEDIATE"
+    },
+    {
+      "skill_name": "SQL",
+      "proficiency_level": "ADVANCED"
+    },
+    {
+      "skill_name": "Docker",
+      "proficiency_level": "BEGINNER"
+    }
+  ]
+}
+
+
+### 6. List Candidate Skills
+GET {{baseUrl}}/profile/skills
+Authorization: Bearer {{authToken}}
+
+
+### 7. Ingest Opportunity 1 (Amazon Backend Intern)
+# @name ingestAmazon
+POST {{baseUrl}}/applications/ingest
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "company_name": "Amazon",
+  "role": "Backend Intern",
+  "source_platform": "LinkedIn",
+  "application_url": "https://amazon.jobs/view/12345",
+  "deadline": "2026-06-25",
+  "job_description_text": "We are looking for Java Spring Boot developers. Experience with Docker and Microservices is a plus."
+}
+
+
+### Save Application ID from Ingest Response
+@amazonAppId = {{ingestAmazon.response.body.id}}
+
+
+### 8. List All Ingested Opportunities
+GET {{baseUrl}}/applications
+Authorization: Bearer {{authToken}}
+
+
+### 9. Filter Opportunities by Status
+GET {{baseUrl}}/applications?status=SAVED
+Authorization: Bearer {{authToken}}
+
+
+### 10. Search Opportunities by Role/Company Keyword
+GET {{baseUrl}}/applications?search=Amazon
+Authorization: Bearer {{authToken}}
+
+
+### 11. Paginate Opportunities List
+GET {{baseUrl}}/applications?skip=0&limit=5
+Authorization: Bearer {{authToken}}
+
+
+### 12. Transition Application Status (to OA Scheduled)
+PATCH {{baseUrl}}/applications/{{amazonAppId}}/status
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "new_status": "OA_SCHEDULED",
+  "notes": "Received Online Assessment invitation email. Planned for Friday afternoon."
+}
+
+
+### 13. AI Resume Tailoring Recommendations
+POST {{baseUrl}}/applications/{{amazonAppId}}/resume-tailor
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "raw_resume_text": "Bhargava. Backend developer experienced in Java and SQL databases. Completed college systems engineering projects."
+}
+
+
+### 14. Fetch Analytics Overview & Conversion Rates
+GET {{baseUrl}}/analytics/overview
+Authorization: Bearer {{authToken}}
+
+
+### 15. Fetch System-Wide Market Trends
+GET {{baseUrl}}/analytics/market-trends
+Authorization: Bearer {{authToken}}
+
+
+### 16. Request Password Reset (Email Simulation in Background Task)
+POST {{baseUrl}}/auth/password-reset-request
+Content-Type: application/json
+
+{
+  "email": "bhargava@gmail.com"
+}
+
+# Note: The background task will output a simulated email in the terminal stdout,
+# containing the token. Copy that token and paste it in the confirm request below.
+
+### 17. Confirm Password Reset with Token
+POST {{baseUrl}}/auth/password-reset-confirm
+Content-Type: application/json
+
+{
+  "token": "token_copied_from_terminal_logs",
+  "new_password": "mynewsecurepassword456"
+}
