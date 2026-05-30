@@ -7,11 +7,15 @@ DATABASE_URL = os.getenv(
     "postgresql+asyncpg://postgres:postgres@localhost:5432/rythm"
 )
 
-# Async engine config
+# Async engine config with connection pooling parameters
 engine = create_async_engine(
     DATABASE_URL,
     echo=True,
-    future=True
+    future=True,
+    pool_size=10,
+    max_overflow=20,
+    pool_recycle=3600,
+    pool_pre_ping=True
 )
 
 async_session = async_sessionmaker(

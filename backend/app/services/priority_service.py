@@ -4,8 +4,8 @@ from typing import List
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.app.models.student import StudentProfile
-from backend.app.models.opportunity import Application
-from backend.app.models.skill import StudentSkill, ApplicationRequiredSkill, SkillTrend
+from backend.app.models.opportunity import Application, ApplicationRequiredSkill
+from backend.app.models.skill import StudentSkill, SkillTrend
 
 WEIGHT_URGENCY = float(os.getenv("WEIGHT_URGENCY", 0.30))
 WEIGHT_SKILL_MATCH = float(os.getenv("WEIGHT_SKILL_MATCH", 0.40))

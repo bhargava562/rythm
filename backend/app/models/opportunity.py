@@ -7,7 +7,7 @@ class Application(Base):
     __tablename__ = "applications"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    student_id = Column(String, ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
+    student_id = Column(String, ForeignKey("students.id", ondelete="CASCADE"), nullable=False, index=True)
     company_name = Column(String(100), nullable=False)
     role = Column(String(100), nullable=False)
     raw_description = Column(Text, nullable=False)
@@ -15,7 +15,7 @@ class Application(Base):
     source_platform = Column(String(50), nullable=False)
     application_url = Column(String(255), nullable=True)
     status = Column(String(30), nullable=False, default="SAVED")
-    priority_score = Column(Float, nullable=False, default=0.0)
+    priority_score = Column(Float, nullable=False, default=0.0, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships

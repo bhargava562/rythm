@@ -18,6 +18,7 @@ from backend.app.schemas.opportunity import (
 from backend.app.services.ai_service import AIService
 from backend.app.services.priority_service import PriorityService
 from backend.app.services.resume_service import ResumeService
+from backend.app.services.cache_service import CacheService
 from backend.app.routers.auth import get_current_student
 
 router = APIRouter(prefix="/applications", tags=["Opportunities Tracking"])
@@ -79,6 +80,9 @@ async def ingest_opportunity(
     priority_score = await PriorityService.recalculate_priority(db, new_app.id)
     await db.commit()
     await db.refresh(new_app)
+
+    # Invalidate cached trends
+    CacheService.delete("market_trends")
 
     return {
         "id": new_app.id,

@@ -10,6 +10,7 @@ from backend.app.models.student import Student
 from backend.app.models.opportunity import Application, ApplicationRequiredSkill
 from backend.app.models.skill import SkillsMaster, StudentSkill, SkillTrend
 from backend.app.routers.auth import get_current_student
+from backend.app.services.cache_service import CacheService
 
 router = APIRouter(prefix="/analytics", tags=["Analytics & System Trends"])
 
@@ -104,14 +105,22 @@ async def get_market_trends(
     current_user: Student = Depends(get_current_student),
     db: AsyncSession = Depends(get_db)
 ):
+    # Try fetching from cache first
+    cached_data = CacheService.get("market_trends")
+    if cached_data:
+        print("--- [CACHE] RETRIEVED MARKET TRENDS FROM CACHE ---")
+        return cached_data
+
+    # Query trends database table
     trends_res = await db.execute(
         select(SkillTrend).order_by(SkillTrend.demand_count.desc()).limit(5)
     )
     trends = trends_res.scalars().all()
 
+    response_data = {}
     if not trends:
-        return {
-            "measured_date": date.today(),
+        response_data = {
+            "measured_date": str(date.today()),
             "hottest_skills": [
                 {"skill_name": "Kafka", "demand_count": 142, "growth_weekly": 0.32},
                 {"skill_name": "Redis", "demand_count": 118, "growth_weekly": 0.18},
@@ -120,17 +129,20 @@ async def get_market_trends(
             ],
             "recommendations": "Based on 32% growth in Kafka listings, integrating message queues in backend applications is highly advised."
         }
+    else:
+        hottest = []
+        for t in trends:
+            hottest.append({
+                "skill_name": t.skill_name,
+                "demand_count": t.demand_count,
+                "growth_weekly": t.trend_percentage / 100.0
+            })
+        response_data = {
+            "measured_date": str(date.today()),
+            "hottest_skills": hottest,
+            "recommendations": "Focus on cloud-native backend skills (Docker, Spring Boot) showing positive trend growth."
+        }
 
-    hottest = []
-    for t in trends:
-        hottest.append({
-            "skill_name": t.skill_name,
-            "demand_count": t.demand_count,
-            "growth_weekly": t.trend_percentage / 100.0
-        })
-
-    return {
-        "measured_date": date.today(),
-        "hottest_skills": hottest,
-        "recommendations": "Focus on cloud-native backend skills (Docker, Spring Boot) showing positive trend growth."
-    }
+    # Store in cache for 300 seconds
+    CacheService.set("market_trends", response_data, ttl=300)
+    return response_data
