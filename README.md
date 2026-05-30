@@ -20,11 +20,10 @@ Rythm is a state-driven career workflow orchestration system designed to support
 
 ## 🛠️ Technology Stack
 
-* **Backend**: Python 3.14+ with FastAPI (Asynchronous API endpoints, Pydantic data validation)
-* **Database**: PostgreSQL (Relational schema for normalized skills and status tracking)
-* **ORM**: SQLAlchemy (Async Engine) with Alembic for migrations
-* **Security**: PyJWT, Passlib (with bcrypt)
-* **AI Engine**: LangChain / Direct API Integrations (Gemini / OpenAI) for semantic analysis
+* **Backend**: Python 3.12+ (FastAPI, Async SQLAlchemy, Pydantic validations)
+* **Database**: PostgreSQL 16 (Relational tables with joint indexes and UUIDs)
+* **Cache**: Redis 7 (TTL-aware caching layer)
+* **Security**: PyJWT, Passlib (with bcrypt), GZip compression, custom sliding window rate limiter
 * **Containerization**: Docker & Docker Compose
 
 ---
@@ -39,7 +38,9 @@ Rythm is a state-driven career workflow orchestration system designed to support
 * [docs/roles_responsibilities.md](file:///D:/rythm/docs/roles_responsibilities.md) — Team organization, roles, and RACI matrix.
 * [docs/project_board.md](file:///D:/rythm/docs/project_board.md) — Interactive task list and development milestones.
 * [docs/setup_guide.md](file:///D:/rythm/docs/setup_guide.md) — Local development and environment setup instructions.
-* [backend/](file:///D:/rythm/backend/) — The FastAPI source code repository skeleton.
+* [docs/deployment_guide.md](file:///D:/rythm/docs/deployment_guide.md) — Production checklist, security policies, and architectural limits.
+* [docs/presentation.md](file:///D:/rythm/docs/presentation.md) — 20-slide Marp project showcase presentation.
+* [backend/](file:///D:/rythm/backend/) — Backend source folder (FastAPI router packages, database models, schemas, and seeder).
 
 ---
 
@@ -50,7 +51,7 @@ The entry-level job search process for engineering and technical students is hig
 1. **Spreadsheet Fatigue**: Tracking applications across multiple job boards (LinkedIn, Naukri, AICTE) manually without automated follow-ups leads to missed deadlines.
 2. **Resume ATS Rejection**: Standard, generic resumes fail applicant tracking systems (ATS) because they lack specific keyword alignment.
 3. **Prioritization Paralysis**: No quantitative metric defines which job requires immediate attention based on deadlines, match level, or trends.
-4. **Outdated Skill Sets**: Students are unaware of shifting market demands (e.g., surges in Redis or Kafka hiring requirements).
+4. **Outdated Focus**: Students are unaware of shifting market demands (e.g., surges in Redis or Kafka hiring requirements).
 
 ### 2. Solution Approach
 Rythm introduces a state-driven career workflow intelligence system. It utilizes:
@@ -117,7 +118,7 @@ graph TD
 
 ---
 
-## 🗄️ Relational Database ERD
+## 🗄️ Relational Database ERD & Verified Schema
 
 ```mermaid
 erDiagram
@@ -202,17 +203,30 @@ erDiagram
     }
 ```
 
+### Verified Schema Tables
+The database schema has been verified inside the running `rythm-postgres` docker container. The following 8 tables are present:
+1. `students` — Credentials, emails, names, roles, reset tokens.
+2. `student_profiles` — Bios, portfolios, targets, strength.
+3. `skills_master` — central directory of tech tags.
+4. `student_skills` — junction user proficiencies.
+5. `applications` — opportunity tracking with priority scores and status values.
+6. `application_required_skills` — AI-extracted requirements.
+7. `application_status_history` — conversion audits.
+8. `skill_trends` — cache-backed weekly growth counts.
+
 ---
 
 ## 🔌 API Endpoints Specification Summary
 
 All endpoints are prefixed with `/api/v1`.
 
-### 1. Authentication
+### 1. Authentication & Security
 * `POST /auth/register` — Registers a new user, hashes password via bcrypt, establishes skeleton profile, returns JWT and refresh token.
 * `POST /auth/login` — Verifies student login and returns access token.
+* `POST /auth/password-reset-request` — Registers reset token and simulates background email transmission via FastAPI `BackgroundTasks`.
+* `POST /auth/password-reset-confirm` — Confirms reset token and updates password hash.
 
-### 2. User Profiles
+### 2. User Profiles & Skills
 * `POST /profile/initialize` — Configures target roles, bio, and social portfolio URLs. Updates profile strength score.
 * `GET /profile` — Retrieves the student's primary profile and metrics.
 * `POST /profile/skills` — Maps list of student skills with BEGINNER, INTERMEDIATE, or ADVANCED levels from/to the central skills master catalog.
@@ -220,36 +234,40 @@ All endpoints are prefixed with `/api/v1`.
 
 ### 3. Application Ingestion & Tracking
 * `POST /applications/ingest` — Primary text ingestion. Triggers LLM skill extraction, maps skill gaps, computes urgency/preference, and returns calculated priority score.
-* `GET /applications` — Lists all tracking opportunities sorted by priority score (descending). Can be filtered by status.
+* `GET /applications` — Lists all tracking opportunities sorted by priority score (descending). Supports `search` keywords, `status` filter, and `skip`/`limit` pagination bounds.
 * `PATCH /applications/{id}/status` — Transitions the state (e.g. `SAVED` -> `OA_SCHEDULED` -> `INTERVIEW`), updating priority scores and logging the change to history audits.
 
 ### 4. Career Intelligence
 * `POST /applications/{id}/resume-tailor` — Compares raw resume text with opportunity requirement. Returns target keyword gaps, bullet optimizations, and highlights.
 * `GET /analytics/overview` — Compares funnel conversion metrics (interview rate, offer conversion) and lists missing skills.
-* `GET /analytics/market-trends` — Identifies macro demand shifts inside the database cohort (hot skills, demand growth weekly indices).
+* `GET /analytics/market-trends` — Identifies macro demand shifts inside the database cohort (hot skills, demand growth weekly indices). Uses cache-first queries via Redis.
 
 ---
 
-## 🛠️ Quick Start
+## 🐳 Docker Deployment & Verification
 
-To set up the backend application locally:
+To run and verify the containerized services locally:
 
-1. **Pre-requisites**: Ensure you have Python 3.12+, PostgreSQL, and Docker installed.
-2. **Follow the Setup Guide**: Refer to [docs/setup_guide.md](file:///D:/rythm/docs/setup_guide.md) for full commands.
-3. **Environment Setup**:
-   ```bash
-   cd backend
-   cp .env.example .env
-   # Update variables in .env
-   ```
-4. **Install Dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-5. **Run Development Server**:
-   ```bash
-   uvicorn app.main:app --reload
-   ```
+### 1. Start the Stack (PostgreSQL, Redis, and FastAPI)
+Ensure Docker Desktop is running, then run:
+```bash
+docker compose up --build -d
+```
+
+### 2. Seed the Database
+Run the seeding script inside the running API container to populate master data:
+```bash
+docker exec rythm-api python backend/seed.py
+```
+
+### 3. Run Integration Tests
+Trigger the automated test client to verify auth flow, ingestion, caching, and rate limiting:
+```bash
+docker exec rythm-api python backend/tests/run_api_tests.py
+```
+
+### 4. Run REST Client Test Suite
+You can also run requests manually using VS Code's **REST Client** extension by opening [backend/tests/api_tests.http](file:///D:/rythm/backend/tests/api_tests.http) and selecting `Send Request` above any HTTP endpoint block.
 
 ---
 

@@ -1,5 +1,6 @@
 import asyncio
 import httpx
+import time
 from datetime import date
 
 BASE_URL = "http://localhost:8000/api/v1"
@@ -7,12 +8,15 @@ BASE_URL = "http://localhost:8000/api/v1"
 async def run_integration_tests():
     print("=== STARTING RYTHM INTEGRATION TESTS ===")
     
+    unique_email = f"bhargava_test_{int(time.time())}@gmail.com"
+    print(f"Generated dynamic test email: {unique_email}")
+
     async with httpx.AsyncClient() as client:
         # Step 1: Registration
         print("\nStep 1: Register Student...")
         reg_payload = {
             "full_name": "Bhargava Test",
-            "email": "bhargava_test@gmail.com",
+            "email": unique_email,
             "password": "securepassword123",
             "college_name": "XYZ Engineering College",
             "graduation_year": 2027,
@@ -27,7 +31,7 @@ async def run_integration_tests():
         # Step 2: Login
         print("\nStep 2: Login Student...")
         login_payload = {
-            "email": "bhargava_test@gmail.com",
+            "email": unique_email,
             "password": "securepassword123"
         }
         res = await client.post(f"{BASE_URL}/auth/login", json=login_payload)
@@ -138,7 +142,7 @@ async def run_integration_tests():
 
         # Step 11: Request Password Reset
         print("\nStep 11: Triggering Password Reset request background task...")
-        reset_payload = {"email": "bhargava_test@gmail.com"}
+        reset_payload = {"email": unique_email}
         res = await client.post(f"{BASE_URL}/auth/password-reset-request", json=reset_payload)
         print(f"Status: {res.status_code}")
         assert res.status_code == 200, "Reset request failed"
