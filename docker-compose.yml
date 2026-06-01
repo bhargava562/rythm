@@ -59,6 +59,19 @@ services:
     networks:
       - rythm-network
 
+  # Frontend Client Service (React Served via Nginx)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: rythm-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - web
+    networks:
+      - rythm-network
+
 volumes:
   pgdata:
 
